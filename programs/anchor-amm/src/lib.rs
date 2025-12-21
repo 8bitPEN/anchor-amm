@@ -15,7 +15,12 @@ declare_id!("7Zk1fV2VY517YbBFtWV76K58msXYcBjGoqsTauox1GcQ");
 pub mod anchor_amm {
     use super::*;
 
-    pub fn initialize_pool(ctx: Context<InitializePool>) -> Result<()> {
-        initialize_pool::handler(ctx)
+    pub fn initialize_pool(
+        ctx: Context<InitializePool>,
+        token_a_amount: u64,
+        token_b_amount: u64,
+        fee_bps: u64,
+    ) -> Result<()> {
+        initialize_pool::handler(ctx, token_a_amount, token_b_amount, fee_bps)
     }
 }
