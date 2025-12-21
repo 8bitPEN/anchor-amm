@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 
+// this probably needs better naming
 #[error_code]
-pub enum ErrorCode {
-    #[msg("Custom error message")]
-    CustomError,
+pub enum FunctionError {
+    #[msg("The given precision for the function was out of range.")]
+    PrecisionError,
+    #[msg("The calculation overflowed")]
+    OverflowError,
 }
