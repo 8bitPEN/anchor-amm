@@ -4,11 +4,10 @@ use crate::error::MathError;
 use crate::LiquidityPool;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token_interface::{
-    transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked, mint_to, MintTo
-};
+use anchor_spl::token::{Mint, Token, TokenAccount, MintTo, mint_to, transfer_checked, TransferChecked};
 
-// TODO make spls and t22 cross compatible in one pool
+// TODO (Pen): Make the precision have a bigger upper limit (19).
+// TODO (Pen): Constant product doesn't have to be normalized.
 #[derive(Accounts)]
 pub struct InitializePool<'info> {
     #[account(mut)]
@@ -19,14 +18,14 @@ pub struct InitializePool<'info> {
         associated_token::authority = signer,
         associated_token::token_program = token_program
     )]
-    pub token_a_signer_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub token_a_signer_token_account: Account<'info, TokenAccount>,
     #[account(
         mut,
         associated_token::mint = token_b_mint,
         associated_token::authority = signer,
         associated_token::token_program = token_program
     )]
-    pub token_b_signer_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub token_b_signer_token_account: Account<'info, TokenAccount>,
     #[account(
         init,
         payer = signer,
@@ -34,7 +33,7 @@ pub struct InitializePool<'info> {
         associated_token::authority = liquidity_pool,
         associated_token::token_program = token_program
     )]
-    pub token_a_vault: InterfaceAccount<'info, TokenAccount>,
+    pub token_a_vault: Account<'info, TokenAccount>,
     #[account(
         init,
         payer = signer,
@@ -42,9 +41,9 @@ pub struct InitializePool<'info> {
         associated_token::authority = liquidity_pool,
         associated_token::token_program = token_program
     )]
-    pub token_b_vault: InterfaceAccount<'info, TokenAccount>,
-    pub token_a_mint: InterfaceAccount<'info, Mint>,
-    pub token_b_mint: InterfaceAccount<'info, Mint>,
+    pub token_b_vault: Account<'info, TokenAccount>,
+    pub token_a_mint: Account<'info, Mint>,
+    pub token_b_mint: Account<'info, Mint>,
     #[account(
         init,
         payer = signer,
@@ -61,16 +60,16 @@ pub struct InitializePool<'info> {
         seeds = [b"lp_token_mint", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
-    pub lp_token_mint: InterfaceAccount<'info, Mint>,
+    pub lp_token_mint: Account<'info, Mint>,
      #[account(
         init_if_needed,
         payer = signer,
         associated_token::mint = lp_token_mint,
         associated_token::authority = signer,
-        associated_token:: token_program = token_program
+        associated_token::token_program = token_program
     )]
-    pub lp_token_signer_token_account: InterfaceAccount<'info, TokenAccount>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub lp_token_signer_token_account: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
