@@ -1,13 +1,11 @@
-use std::cmp::Ordering;
-
 use crate::error::MathError;
 use crate::LiquidityPool;
+use crate::helpers::{calculate_constant_product, normalize_amounts};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount, MintTo, mint_to, transfer_checked, TransferChecked};
 
 // TODO (Pen): Make the precision have a bigger upper limit (19).
-// TODO (Pen): Constant product doesn't have to be normalized.
 #[derive(Accounts)]
 pub struct InitializePool<'info> {
     #[account(mut)]
@@ -89,15 +87,13 @@ pub fn handler(
         token_b_amount,
         ctx.accounts.token_b_mint.decimals,
     )?;
-    let constant_product = (token_a_amount_normalized as u128)
-        .checked_mul(token_b_amount_normalized as u128)
-        .ok_or(MathError::OverflowError)?;
+    let constant_product = calculate_constant_product(token_a_amount as u128, token_b_amount as u128)?;
     ctx.accounts.mint_lp_tokens(constant_product, ctx.bumps.lp_token_mint)?;
     let constant_product = u64::try_from(constant_product).map_err(|_| MathError::OverflowError)?;
 
     *ctx.accounts.liquidity_pool = LiquidityPool {
-        token_a: ctx.accounts.token_a_mint.key(),
-        token_b: ctx.accounts.token_b_mint.key(),
+        token_a_mint: ctx.accounts.token_a_mint.key(),
+        token_b_mint: ctx.accounts.token_b_mint.key(),
         token_a_amount: token_a_amount_normalized,
         token_b_amount: token_b_amount_normalized,
         constant_product,
@@ -108,40 +104,7 @@ pub fn handler(
     };
     Ok(())
 }
-// TODO (Pen): Revisit this, when you know more about max or min decimals and normalization
-fn normalize_amounts(
-    amount_a: u64,
-    precision_a: u8,
-    amount_b: u64,
-    precision_b: u8,
-) -> Result<(u64, u64, u8)> {
-    // maybe this isn't neccessary
-    require!(
-        precision_a > 0 && precision_a <= 12 && precision_b > 0 && precision_b <= 12,
-        MathError::PrecisionError
-    );
-    let precision_diff = precision_a.abs_diff(precision_b);
-    let padding = 10_u64.pow(precision_diff as u32);
-    // TODO casting up and down, this is dangerous now, gotta cast to u128 first before math'ing
-    let (adjusted_amount_a, adjusted_amount_b, precision) = match precision_a.cmp(&precision_b) {
-        Ordering::Equal => (amount_a, amount_b, precision_a),
-        Ordering::Greater => (
-            amount_a,
-            amount_b
-                .checked_mul(padding)
-                .ok_or(MathError::OverflowError)?,
-            precision_a,
-        ),
-        Ordering::Less => (
-            amount_a
-                .checked_mul(padding)
-                .ok_or(MathError::OverflowError)?,
-            amount_b,
-            precision_b,
-        ),
-    };
-    Ok((adjusted_amount_a, adjusted_amount_b, precision))
-}
+
 
 impl<'info> InitializePool<'info> {
     /// Validate that the amounts are greater than 0.
