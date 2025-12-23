@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use std::cmp::Ordering;
 
-use crate::error::MathError;
+use crate::error::{AMMError, MathError};
 // TODO (Pen): Revisit this, when you know more about max or min decimals and normalization
 pub fn normalize_amounts(
     amount_a: u64,
@@ -35,6 +35,39 @@ pub fn normalize_amounts(
         ),
     };
     Ok((adjusted_amount_a, adjusted_amount_b, precision))
+}
+// TODO (Pen): Maybe a common precision would be better at 12 or something large.
+pub fn common_precision(precision_a: u8, precision_b: u8) -> u8 {
+    precision_a.max(precision_b)
+}
+
+/// Calculates the equivalent amount of token B for a given amount of token A,
+/// based on current pool reserves. Used for proportional deposits/withdrawals.
+///
+/// Formula: `token_b_out = (token_a_amount * token_b_reserves) / token_a_reserves`
+///
+/// # Arguments
+/// * `token_a_amount` - The amount of token A being quoted
+/// * `token_a_reserves` - Current token A reserves in the pool
+/// * `token_b_reserves` - Current token B reserves in the pool
+///
+/// # Errors
+/// * `AMMError::InssufficientAmount` - If `token_a_amount` is zero
+/// * `AMMError::InsufficientLiquidity` - If either reserve is zero
+/// * `MathError::OverflowError` - If multiplication overflows
+/// * `MathError::ZeroDivisionError` - If division by zero occurs
+pub fn quote(token_a_amount: u128, token_a_reserves: u128, token_b_reserves: u128) -> Result<u128> {
+    require_gt!(token_a_amount, 0, AMMError::InssufficientAmount);
+    require!(
+        token_a_reserves > 0 && token_b_reserves > 0,
+        AMMError::InsufficientLiquidity
+    );
+    let result = token_a_amount
+        .checked_mul(token_b_reserves)
+        .ok_or(MathError::OverflowError)?
+        .checked_div(token_a_reserves)
+        .ok_or(MathError::ZeroDivisionError)?;
+    Ok(result)
 }
 
 pub fn calculate_constant_product(token_a_amount: u128, token_b_amount: u128) -> Result<u128> {

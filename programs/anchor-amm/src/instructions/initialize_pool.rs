@@ -1,11 +1,15 @@
 use crate::error::MathError;
 use crate::LiquidityPool;
-use crate::helpers::{calculate_constant_product, normalize_amounts};
+use crate::helpers::{calculate_constant_product, common_precision};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount, MintTo, mint_to, transfer_checked, TransferChecked};
 
+
 // TODO (Pen): Make the precision have a bigger upper limit (19).
+// OPTIMIZE (Pen): Maybe making the initialize instruction only to initialize would be better, 
+// OPTIMIZE (Pen): so that the user doesn't need to actually deposit immediately
+// TODO (Pen): Minimum liquidity burn
 #[derive(Accounts)]
 pub struct InitializePool<'info> {
     #[account(mut)]
@@ -59,7 +63,7 @@ pub struct InitializePool<'info> {
         bump
     )]
     pub lp_token_mint: Account<'info, Mint>,
-     #[account(
+    #[account(
         init_if_needed,
         payer = signer,
         associated_token::mint = lp_token_mint,
@@ -81,25 +85,18 @@ pub fn handler(
     ctx.accounts.validate(token_a_amount, token_b_amount)?;
     ctx.accounts
         .transfer_to_vaults(token_a_amount, token_b_amount)?;
-    let (token_a_amount_normalized, token_b_amount_normalized, common_precision) = normalize_amounts(
-        token_a_amount,
-        ctx.accounts.token_a_mint.decimals,
-        token_b_amount,
-        ctx.accounts.token_b_mint.decimals,
-    )?;
-    let constant_product = calculate_constant_product(token_a_amount as u128, token_b_amount as u128)?;
+       
+    let constant_product = calculate_constant_product(token_a_amount as u128, token_b_amount as u128)?; 
     ctx.accounts.mint_lp_tokens(constant_product, ctx.bumps.lp_token_mint)?;
-    let constant_product = u64::try_from(constant_product).map_err(|_| MathError::OverflowError)?;
 
     *ctx.accounts.liquidity_pool = LiquidityPool {
         token_a_mint: ctx.accounts.token_a_mint.key(),
         token_b_mint: ctx.accounts.token_b_mint.key(),
-        token_a_amount: token_a_amount_normalized,
-        token_b_amount: token_b_amount_normalized,
-        constant_product,
+        token_a_reserves: token_a_amount,
+        token_b_reserves: token_b_amount,
         lp_fee_bps: fee_bps,
         protocol_fee_bps: 2,
-        precision: common_precision,
+        precision: common_precision(ctx.accounts.token_a_mint.decimals, ctx.accounts.token_b_mint.decimals),
         bump: ctx.bumps.liquidity_pool,
     };
     Ok(())
@@ -188,7 +185,7 @@ impl<'info> InitializePool<'info> {
             self.token_program.to_account_info(), 
             MintTo {
                 mint: self.lp_token_mint.to_account_info(),
-                to: self.signer.to_account_info(),
+                to: self.lp_token_signer_token_account.to_account_info(),
                 authority: self.lp_token_mint.to_account_info(),
             }, 
             signer_seeds

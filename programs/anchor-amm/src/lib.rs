@@ -1,8 +1,8 @@
 pub mod constants;
 pub mod error;
+mod helpers;
 pub mod instructions;
 pub mod state;
-mod helpers;
 
 use anchor_lang::prelude::*;
 
@@ -24,7 +24,19 @@ pub mod anchor_amm {
     ) -> Result<()> {
         initialize_pool::handler(ctx, token_a_amount, token_b_amount, fee_bps)
     }
-    pub fn deposit(ctx: Context<Deposit>, token_a_amount: u64, token_b_amount: u64) -> Result<()> {
-        deposit::handler(ctx, token_a_amount, token_b_amount)
+    pub fn deposit(
+        ctx: Context<Deposit>,
+        token_a_amount_desired: u64,
+        token_b_amount_desired: u64,
+        token_a_amount_min: u64,
+        token_b_amount_min: u64,
+    ) -> Result<()> {
+        deposit::handler(
+            ctx,
+            token_a_amount_desired,
+            token_b_amount_desired,
+            token_a_amount_min,
+            token_b_amount_min,
+        )
     }
 }
