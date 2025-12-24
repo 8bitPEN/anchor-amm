@@ -1,5 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{transfer_checked, Mint, Token, TokenAccount, TransferChecked};
+
+/// Trait for depositing tokens into AMM pool vaults.
+///
+/// Implement this trait on any Anchor accounts struct that needs to transfer
+/// tokens from a user's token accounts into the pool's liquidity vaults.
 pub trait VaultDepositor<'info> {
     fn token_program(&self) -> &Program<'info, Token>;
     fn token_a_signer_token_account(&self) -> &Account<'info, TokenAccount>;
@@ -9,7 +14,8 @@ pub trait VaultDepositor<'info> {
     fn token_a_vault(&self) -> &Account<'info, TokenAccount>;
     fn token_b_vault(&self) -> &Account<'info, TokenAccount>;
     fn signer(&self) -> &Signer<'info>;
-    // Transfers initial liquidity from the signer's token accounts to the pool vaults.
+
+    /// Transfers liquidity from the signer's token accounts to the pool vaults.
     ///
     /// Performs two CPI calls to transfer tokens:
     /// - Token A from `token_a_signer_token_account` → `token_a_vault`

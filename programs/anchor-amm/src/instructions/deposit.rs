@@ -128,6 +128,30 @@ pub fn handler(
 }
 
 impl<'info> Deposit<'info> {
+    /// Calculates optimal deposit amounts that maintain the pool's current ratio.
+    ///
+    /// Since AMM pools require deposits in the exact ratio of existing reserves,
+    /// this function adjusts the user's desired amounts to match the pool ratio
+    /// while maximizing the deposit within slippage constraints.
+    ///
+    /// # Algorithm
+    /// 1. First tries to use all of `token_a_amount_desired` and calculates the
+    ///    corresponding optimal token B amount based on current reserves
+    /// 2. If optimal B ≤ desired B: uses (desired A, optimal B)
+    /// 3. Otherwise: flips the calculation — uses all of `token_b_amount_desired`
+    ///    and calculates the optimal token A amount
+    ///
+    /// # Arguments
+    /// * `token_a_amount_desired` - Maximum amount of token A the user wants to deposit
+    /// * `token_b_amount_desired` - Maximum amount of token B the user wants to deposit
+    /// * `token_a_amount_min` - Minimum acceptable token A deposit (slippage protection)
+    /// * `token_b_amount_min` - Minimum acceptable token B deposit (slippage protection)
+    ///
+    /// # Returns
+    /// A tuple `(token_a_amount, token_b_amount)` representing the optimized deposit amounts.
+    ///
+    /// # Errors
+    /// Returns `AMMError::SlippageLimitExceeded` if the optimal amounts fall below minimums.
     pub fn optimize_deposit_amounts(
         &self,
         token_a_amount_desired: u128,
@@ -183,7 +207,6 @@ impl<'info> LPMinter<'info> for Deposit<'info> {
         &self.lp_token_signer_token_account
     }
 }
-
 impl<'info> VaultDepositor<'info> for Deposit<'info> {
     fn token_program(&self) -> &Program<'info, Token> {
         &self.token_program
