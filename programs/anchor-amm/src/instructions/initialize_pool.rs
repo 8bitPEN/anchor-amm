@@ -1,9 +1,9 @@
 use crate::error::MathError;
 use crate::LiquidityPool;
-use crate::helpers::{calculate_constant_product, common_precision};
+use crate::helpers::{LPMinter, VaultDepositor, calculate_constant_product, common_precision};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{Mint, Token, TokenAccount, MintTo, mint_to, transfer_checked, TransferChecked};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 
 // TODO (Pen): Make the precision have a bigger upper limit (19).
@@ -86,8 +86,11 @@ pub fn handler(
     ctx.accounts
         .transfer_to_vaults(token_a_amount, token_b_amount)?;
        
-    let constant_product = calculate_constant_product(token_a_amount as u128, token_b_amount as u128)?; 
-    ctx.accounts.mint_lp_tokens(constant_product, ctx.bumps.lp_token_mint)?;
+    let lp_tokens_to_mint: u64 = calculate_constant_product(token_a_amount as u128, token_b_amount as u128)?
+        .isqrt()
+        .try_into()
+        .map_err(|_| MathError::OverflowError)?;
+    ctx.accounts.mint_lp_tokens(lp_tokens_to_mint, ctx.bumps.lp_token_mint)?;
 
     *ctx.accounts.liquidity_pool = LiquidityPool {
         token_a_mint: ctx.accounts.token_a_mint.key(),
@@ -111,85 +114,58 @@ impl<'info> InitializePool<'info> {
         Ok(())
     }
 
-    /// Transfers initial liquidity from the signer's token accounts to the pool vaults.
-    ///
-    /// Performs two CPI calls to transfer tokens:
-    /// - Token A from `token_a_signer_token_account` → `token_a_vault`
-    /// - Token B from `token_b_signer_token_account` → `token_b_vault`
-    ///
-    /// # Arguments
-    /// * `token_a_amount` - Amount of token A to deposit (in token A's native decimals)
-    /// * `token_b_amount` - Amount of token B to deposit (in token B's native decimals)
-    ///
-    /// # Errors
-    /// Returns an error if either transfer CPI fails (e.g., insufficient balance).
-    pub fn transfer_to_vaults(&self, token_a_amount: u64, token_b_amount: u64) -> Result<()> {
-
-        let token_a_transfer_ctx = CpiContext::new(
-            self.token_program.to_account_info(),
-            TransferChecked {
-                from: self.token_a_signer_token_account.to_account_info(),
-                mint: self.token_a_mint.to_account_info(),
-                to: self.token_a_vault.to_account_info(),
-                authority: self.signer.to_account_info(),
-            },
-        );
-        let token_b_transfer_ctx = CpiContext::new(
-            self.token_program.to_account_info(),
-            TransferChecked {
-                from: self.token_b_signer_token_account.to_account_info(),
-                mint: self.token_b_mint.to_account_info(),
-                to: self.token_b_vault.to_account_info(),
-                authority: self.signer.to_account_info(),
-            },
-        );
-        transfer_checked(
-            token_a_transfer_ctx,
-            token_a_amount,
-            self.token_a_mint.decimals,
-        )?;
-        transfer_checked(
-            token_b_transfer_ctx,
-            token_b_amount,
-            self.token_b_mint.decimals,
-        )?;
-        Ok(())
+}
+impl<'info> LPMinter<'info> for InitializePool<'info> {
+    fn token_program(&self) -> &Program<'info, Token> {
+        &self.token_program
     }
-    
-    /// Mints initial LP tokens to the signer based on the square root of the constant product (based on the Uniswap model).
-    ///
-    /// Performs a CPI call to mint LP tokens to the liquidity provider:
-    /// - Calculates LP token amount as √(constant_product)
-    /// - Mints tokens to `lp_token_signer_token_account` using the LP token mint's PDA authority
-    ///
-    /// # Arguments
-    /// * `constant_product` - The product of normalized token A and token B amounts (k = x * y)
-    /// * `lp_token_mint_bump` - The bump seed for the LP token mint PDA
-    ///
-    /// # Errors
-    /// Returns an error if:
-    /// - The square root calculation results in an overflow when converting to u64
-    /// - The mint CPI fails
-    pub fn mint_lp_tokens(&self, constant_product: u128, lp_token_mint_bump: u8) -> Result<()> {
-        let lp_token_amount = u64::try_from(
-            (constant_product as u128).isqrt())
-             .map_err(|_| MathError::OverflowError)?;
-        // --
-        // this is just so rust doesn't bother me with borrow rules
-        let token_a_key = self.token_a_mint.key();
-        let token_b_key = self.token_b_mint.key();
-        // --
-        let signer_seeds: &[&[&[u8]]] = &[&[b"lp_token_mint", token_a_key.as_ref(), token_b_key.as_ref() ,&[lp_token_mint_bump]]];
 
-        let mint_to_ctx = CpiContext::new_with_signer(
-            self.token_program.to_account_info(), 
-            MintTo {
-                mint: self.lp_token_mint.to_account_info(),
-                to: self.lp_token_signer_token_account.to_account_info(),
-                authority: self.lp_token_mint.to_account_info(),
-            }, 
-            signer_seeds
-        );
-        mint_to(mint_to_ctx, lp_token_amount)
+    fn token_a_mint(&self) -> &Account<'info, Mint> {
+        &self.token_a_mint
+    }
+
+    fn token_b_mint(&self) -> &Account<'info, Mint> {
+        &self.token_b_mint
+    }
+
+    fn lp_token_mint(&self) -> &Account<'info, Mint> {
+        &self.lp_token_mint
+    }
+
+    fn lp_token_signer_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.lp_token_signer_token_account
+    }
+}
+impl<'info> VaultDepositor<'info> for InitializePool<'info> {
+    fn token_program(&self) -> &Program<'info, Token> {
+        &self.token_program
+    }
+
+    fn token_a_signer_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.token_a_signer_token_account
+    }
+
+    fn token_b_signer_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.token_b_signer_token_account
+    }
+
+    fn token_a_mint(&self) -> &Account<'info, Mint> {
+        &self.token_a_mint
+    }
+
+    fn token_b_mint(&self) -> &Account<'info, Mint> {
+        &self.token_b_mint
+    }
+
+    fn token_a_vault(&self) -> &Account<'info, TokenAccount> {
+        &self.token_a_vault
+    }
+
+    fn token_b_vault(&self) -> &Account<'info, TokenAccount> {
+        &self.token_b_vault
+    }
+
+    fn signer(&self) -> &Signer<'info> {
+        &self.signer
     }
 }

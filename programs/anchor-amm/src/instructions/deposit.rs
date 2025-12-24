@@ -1,12 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{mint_to, transfer_checked, Mint, MintTo, Token, TokenAccount, TransferChecked},
+    token::{Mint, Token, TokenAccount},
 };
 
 use crate::{
     error::{AMMError, MathError},
-    helpers::quote,
+    helpers::{quote, LPMinter, VaultDepositor},
     LiquidityPool,
 };
 // TODO (Pen): What happens if an attacker just sends coins to the ATA of the liquidity pool? The fix is probably to keep count of the actual reserves
@@ -161,59 +161,59 @@ impl<'info> Deposit<'info> {
             return Ok((token_a_optimal_amount, token_b_amount_desired));
         }
     }
-    pub fn mint_lp_tokens(&self, lp_tokens_to_mint: u64, lp_token_mint_bump: u8) -> Result<()> {
-        // --
-        // this is just so rust doesn't bother me with borrow rules
-        let token_a_key = self.token_a_mint.key();
-        let token_b_key = self.token_b_mint.key();
-        // --
-        let signer_seeds: &[&[&[u8]]] = &[&[
-            b"lp_token_mint",
-            token_a_key.as_ref(),
-            token_b_key.as_ref(),
-            &[lp_token_mint_bump],
-        ]];
-
-        let mint_to_ctx = CpiContext::new_with_signer(
-            self.token_program.to_account_info(),
-            MintTo {
-                mint: self.lp_token_mint.to_account_info(),
-                to: self.lp_token_signer_token_account.to_account_info(),
-                authority: self.lp_token_mint.to_account_info(),
-            },
-            signer_seeds,
-        );
-        mint_to(mint_to_ctx, lp_tokens_to_mint)
+}
+impl<'info> LPMinter<'info> for Deposit<'info> {
+    fn token_program(&self) -> &Program<'info, Token> {
+        &self.token_program
     }
-    pub fn transfer_to_vaults(&self, token_a_amount: u64, token_b_amount: u64) -> Result<()> {
-        let token_a_transfer_ctx = CpiContext::new(
-            self.token_program.to_account_info(),
-            TransferChecked {
-                from: self.token_a_signer_token_account.to_account_info(),
-                mint: self.token_a_mint.to_account_info(),
-                to: self.token_a_vault.to_account_info(),
-                authority: self.signer.to_account_info(),
-            },
-        );
-        let token_b_transfer_ctx = CpiContext::new(
-            self.token_program.to_account_info(),
-            TransferChecked {
-                from: self.token_b_signer_token_account.to_account_info(),
-                mint: self.token_b_mint.to_account_info(),
-                to: self.token_b_vault.to_account_info(),
-                authority: self.signer.to_account_info(),
-            },
-        );
-        transfer_checked(
-            token_a_transfer_ctx,
-            token_a_amount,
-            self.token_a_mint.decimals,
-        )?;
-        transfer_checked(
-            token_b_transfer_ctx,
-            token_b_amount,
-            self.token_b_mint.decimals,
-        )?;
-        Ok(())
+
+    fn token_a_mint(&self) -> &Account<'info, Mint> {
+        &self.token_a_mint
+    }
+
+    fn token_b_mint(&self) -> &Account<'info, Mint> {
+        &self.token_b_mint
+    }
+
+    fn lp_token_mint(&self) -> &Account<'info, Mint> {
+        &self.lp_token_mint
+    }
+
+    fn lp_token_signer_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.lp_token_signer_token_account
+    }
+}
+
+impl<'info> VaultDepositor<'info> for Deposit<'info> {
+    fn token_program(&self) -> &Program<'info, Token> {
+        &self.token_program
+    }
+
+    fn token_a_signer_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.token_a_signer_token_account
+    }
+
+    fn token_b_signer_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.token_b_signer_token_account
+    }
+
+    fn token_a_mint(&self) -> &Account<'info, Mint> {
+        &self.token_a_mint
+    }
+
+    fn token_b_mint(&self) -> &Account<'info, Mint> {
+        &self.token_b_mint
+    }
+
+    fn token_a_vault(&self) -> &Account<'info, TokenAccount> {
+        &self.token_a_vault
+    }
+
+    fn token_b_vault(&self) -> &Account<'info, TokenAccount> {
+        &self.token_b_vault
+    }
+
+    fn signer(&self) -> &Signer<'info> {
+        &self.signer
     }
 }
