@@ -4,8 +4,6 @@ mod helpers;
 pub mod instructions;
 pub mod state;
 
-use anchor_lang::prelude::*;
-
 pub use constants::*;
 pub use instructions::*;
 pub use state::*;
@@ -14,6 +12,7 @@ declare_id!("7Zk1fV2VY517YbBFtWV76K58msXYcBjGoqsTauox1GcQ");
 
 #[program]
 pub mod anchor_amm {
+
     use super::*;
 
     pub fn initialize_pool(ctx: Context<InitializePool>) -> Result<()> {
@@ -33,5 +32,11 @@ pub mod anchor_amm {
             token_a_amount_min,
             token_b_amount_min,
         )
+    }
+    pub fn sync(ctx: Context<SyncReserves>) -> Result<()> {
+        sync_reserves::handler(ctx)
+    }
+    pub fn skim(ctx: Context<SkimReserves>) -> Result<()> {
+        skim_reserves::handler(ctx)
     }
 }

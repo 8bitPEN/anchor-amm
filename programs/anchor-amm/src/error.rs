@@ -11,6 +11,7 @@ pub enum MathError {
     ZeroDivisionError,
 }
 // TODO (Pen): is this even allowed, are two "error_codes allowed?"
+// TODO (Pen): Better error messages, names
 #[error_code]
 pub enum AMMError {
     #[msg("Inssufficient amount")]
@@ -25,4 +26,6 @@ pub enum AMMError {
     LowLiquidity,
     #[msg("The two mints are the same")]
     TokenMintsEqual,
+    #[msg("There is nothing to skim")]
+    NothingToSkim,
 }

@@ -7,7 +7,7 @@ use anchor_spl::{
 use crate::{
     error::{AMMError, MathError},
     helpers::{calculate_constant_product, quote, LPMinter, VaultDepositor},
-    LiquidityPool,
+    LiquidityPool, LIQUIDITY_POOL_SEED,
 };
 // TODO (Pen): What happens if an attacker just sends coins to the ATA of the liquidity pool? The fix is probably to keep count of the actual reserves
 // TODO (Pen): Sync + Skim functions could be useful for that ^
@@ -65,7 +65,7 @@ pub struct Deposit<'info> {
     pub lp_token_mint: Account<'info, Mint>,
     #[account(
         mut,
-        seeds = [b"liquidity_pool", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,

@@ -1,4 +1,4 @@
-use crate::LiquidityPool;
+use crate::{LIQUIDITY_POOL_SEED, LiquidityPool};
 use crate::error::AMMError;
 use crate::helpers::common_precision;
 use anchor_lang::prelude::*;
@@ -56,7 +56,7 @@ pub struct InitializePool<'info> {
         payer = signer,
         mint::decimals = token_a_mint.decimals.max(token_b_mint.decimals),
         mint::authority = lp_token_mint.key(),
-        seeds = [b"lp_token_mint", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
     pub lp_token_mint: Account<'info, Mint>,
@@ -76,9 +76,11 @@ pub struct InitializePool<'info> {
 pub fn handler(
     ctx: Context<InitializePool>,
 ) -> Result<()> {
-    
-    require_keys_neq!(ctx.accounts.token_a_mint.key(),
-    ctx.accounts.token_b_mint.key(), AMMError::TokenMintsEqual); 
+    require_keys_neq!(
+        ctx.accounts.token_a_mint.key(),
+        ctx.accounts.token_b_mint.key(), 
+        AMMError::TokenMintsEqual
+    ); 
     let precision = common_precision(
         ctx.accounts.token_a_mint.decimals, 
         ctx.accounts.token_b_mint.decimals,         
