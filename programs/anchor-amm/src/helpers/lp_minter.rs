@@ -11,17 +11,22 @@ pub trait LPMinter<'info> {
     fn token_a_mint(&self) -> &Account<'info, Mint>;
     fn token_b_mint(&self) -> &Account<'info, Mint>;
     fn lp_token_mint(&self) -> &Account<'info, Mint>;
-    fn lp_token_signer_token_account(&self) -> &Account<'info, TokenAccount>;
 
-    /// Mints LP tokens to the signer's token account.
+    /// Mints LP tokens to the specified token account.
     ///
     /// # Arguments
+    /// * `mint_to_account` - The destination token account to receive minted LP tokens
     /// * `lp_tokens_to_mint` - The amount of LP tokens to mint
     /// * `lp_token_mint_bump` - The PDA bump seed for the LP token mint
     ///
     /// # PDA Seeds
     /// The LP token mint PDA is derived from: `["lp_token_mint", token_a_mint, token_b_mint]`
-    fn mint_lp_tokens(&self, lp_tokens_to_mint: u64, lp_token_mint_bump: u8) -> Result<()> {
+    fn mint_lp_tokens(
+        &self,
+        mint_to_account: &Account<'info, TokenAccount>,
+        lp_tokens_to_mint: u64,
+        lp_token_mint_bump: u8,
+    ) -> Result<()> {
         // Extract keys upfront to satisfy borrow checker
         let token_a_key = self.token_a_mint().key();
         let token_b_key = self.token_b_mint().key();
@@ -37,7 +42,7 @@ pub trait LPMinter<'info> {
             self.token_program().to_account_info(),
             MintTo {
                 mint: self.lp_token_mint().to_account_info(),
-                to: self.lp_token_signer_token_account().to_account_info(),
+                to: mint_to_account.to_account_info(),
                 authority: self.lp_token_mint().to_account_info(),
             },
             signer_seeds,

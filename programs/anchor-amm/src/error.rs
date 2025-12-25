@@ -19,4 +19,10 @@ pub enum AMMError {
     InsufficientLiquidity,
     #[msg("Slippage limit exceeded")]
     SlippageLimitExceeded, // we could probably name this better lol
+    #[msg("Zero input amount")]
+    ZeroInputAmount,
+    #[msg("The provided liquidity is too low")]
+    LowLiquidity,
+    #[msg("The two mints are the same")]
+    TokenMintsEqual,
 }

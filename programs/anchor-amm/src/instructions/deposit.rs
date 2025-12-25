@@ -6,11 +6,17 @@ use anchor_spl::{
 
 use crate::{
     error::{AMMError, MathError},
-    helpers::{quote, LPMinter, VaultDepositor},
+    helpers::{calculate_constant_product, quote, LPMinter, VaultDepositor},
     LiquidityPool,
 };
 // TODO (Pen): What happens if an attacker just sends coins to the ATA of the liquidity pool? The fix is probably to keep count of the actual reserves
+// TODO (Pen): Sync + Skim functions could be useful for that ^
 // TODO (Pen): Should there be deposit fees? Not gonna bother with fees for now.
+// TODO (Pen): Make the precision have a bigger upper limit (19).
+// OPTIMIZE (Pen): Maybe making the initialize instruction only to initialize would be better,
+// OPTIMIZE (Pen): so that the user doesn't need to actually deposit immediately
+// TODO (Pen): Minimum liquidity burn
+// TODO (Pen): Time based deadline like uniswap
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(mut)]
@@ -66,6 +72,15 @@ pub struct Deposit<'info> {
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
+    #[account(
+        init_if_needed,
+        payer = signer,
+        associated_token::mint = lp_token_mint,
+        associated_token::authority = system_program,
+        associated_token::token_program = token_program
+    )]
+    // this is a dead address, sending here won't reduce the supply, but still effectively burn tokens
+    pub lp_token_system_program_token_account: Account<'info, TokenAccount>,
 }
 
 pub fn handler(
@@ -75,6 +90,39 @@ pub fn handler(
     token_a_amount_min: u64,
     token_b_amount_min: u64,
 ) -> Result<()> {
+    require!(
+        token_a_amount_desired > 0 && token_b_amount_desired > 0,
+        AMMError::ZeroInputAmount
+    );
+    if ctx.accounts.lp_token_mint.supply == 0 {
+        ctx.accounts
+            .transfer_to_vaults(token_a_amount_desired, token_b_amount_desired)?;
+        ctx.accounts.liquidity_pool.token_a_reserves = token_a_amount_desired
+            .checked_add(ctx.accounts.liquidity_pool.token_a_reserves)
+            .ok_or(MathError::OverflowError)?;
+        ctx.accounts.liquidity_pool.token_a_reserves = token_b_amount_desired
+            .checked_add(ctx.accounts.liquidity_pool.token_b_reserves)
+            .ok_or(MathError::OverflowError)?;
+        let lp_tokens_to_mint: u64 = calculate_constant_product(
+            token_a_amount_desired as u128,
+            token_b_amount_desired as u128,
+        )?
+        .isqrt()
+        .try_into()
+        .map_err(|_| MathError::OverflowError)?;
+        require_gt!(lp_tokens_to_mint, 1000, AMMError::LowLiquidity);
+        ctx.accounts.mint_lp_tokens(
+            &ctx.accounts.lp_token_system_program_token_account,
+            1000,
+            ctx.bumps.lp_token_mint,
+        )?;
+        ctx.accounts.mint_lp_tokens(
+            &ctx.accounts.lp_token_signer_token_account,
+            lp_tokens_to_mint - 1000,
+            ctx.bumps.lp_token_mint,
+        )?;
+        return Ok(());
+    }
     let token_a_amount_desired = token_a_amount_desired as u128;
     let token_b_amount_desired = token_b_amount_desired as u128;
     let token_a_amount_min = token_a_amount_min as u128;
@@ -102,8 +150,11 @@ pub fn handler(
         .ok_or(MathError::ZeroDivisionError)?
         .try_into()
         .map_err(|_| MathError::OverflowError)?;
-    ctx.accounts
-        .mint_lp_tokens(lp_tokens_to_mint, ctx.bumps.lp_token_mint)?;
+    ctx.accounts.mint_lp_tokens(
+        &ctx.accounts.lp_token_signer_token_account,
+        lp_tokens_to_mint,
+        ctx.bumps.lp_token_mint,
+    )?;
     ctx.accounts.liquidity_pool.token_a_reserves = ctx
         .accounts
         .liquidity_pool
@@ -201,10 +252,6 @@ impl<'info> LPMinter<'info> for Deposit<'info> {
 
     fn lp_token_mint(&self) -> &Account<'info, Mint> {
         &self.lp_token_mint
-    }
-
-    fn lp_token_signer_token_account(&self) -> &Account<'info, TokenAccount> {
-        &self.lp_token_signer_token_account
     }
 }
 impl<'info> VaultDepositor<'info> for Deposit<'info> {
