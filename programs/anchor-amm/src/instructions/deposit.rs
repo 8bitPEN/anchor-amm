@@ -96,7 +96,7 @@ pub fn handler(
     );
     if ctx.accounts.lp_token_mint.supply == 0 {
         ctx.accounts
-            .transfer_to_vaults(token_a_amount_desired, token_b_amount_desired)?;
+            .deposit(token_a_amount_desired, token_b_amount_desired)?;
         ctx.accounts.liquidity_pool.token_a_reserves = token_a_amount_desired
             .checked_add(ctx.accounts.liquidity_pool.token_a_reserves)
             .ok_or(MathError::OverflowError)?;
@@ -133,7 +133,7 @@ pub fn handler(
         token_a_amount_min,
         token_b_amount_min,
     )?;
-    ctx.accounts.transfer_to_vaults(
+    ctx.accounts.deposit(
         token_a_deposit_amount
             .try_into()
             .map_err(|_| MathError::OverflowError)?,

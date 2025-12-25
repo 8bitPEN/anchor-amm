@@ -27,7 +27,7 @@ pub trait VaultDepositor<'info> {
     ///
     /// # Errors
     /// Returns an error if either transfer CPI fails (e.g., insufficient balance).
-    fn transfer_to_vaults(&self, token_a_amount: u64, token_b_amount: u64) -> Result<()> {
+    fn deposit(&self, token_a_amount: u64, token_b_amount: u64) -> Result<()> {
         let token_a_transfer_ctx = CpiContext::new(
             self.token_program().to_account_info(),
             TransferChecked {
