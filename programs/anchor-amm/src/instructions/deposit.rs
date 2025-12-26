@@ -6,7 +6,7 @@ use anchor_spl::{
 
 use crate::{
     error::{AMMError, MathError},
-    helpers::{calculate_constant_product, quote, LPMinter, VaultDepositor},
+    helpers::{calculate_constant_product, quote, LPMinter, ReserveSyncer, VaultDepositor},
     LiquidityPool, LIQUIDITY_POOL_SEED,
 };
 // TODO (Pen): What happens if an attacker just sends coins to the ATA of the liquidity pool? The fix is probably to keep count of the actual reserves
@@ -97,12 +97,12 @@ pub fn handler(
     if ctx.accounts.lp_token_mint.supply == 0 {
         ctx.accounts
             .deposit(token_a_amount_desired, token_b_amount_desired)?;
-        ctx.accounts.liquidity_pool.token_a_reserves = token_a_amount_desired
-            .checked_add(ctx.accounts.liquidity_pool.token_a_reserves)
-            .ok_or(MathError::OverflowError)?;
-        ctx.accounts.liquidity_pool.token_a_reserves = token_b_amount_desired
-            .checked_add(ctx.accounts.liquidity_pool.token_b_reserves)
-            .ok_or(MathError::OverflowError)?;
+
+        // Reload vaults and sync reserves
+        ctx.accounts.token_a_vault.reload()?;
+        ctx.accounts.token_b_vault.reload()?;
+        ctx.accounts.sync_reserves();
+
         let lp_tokens_to_mint: u64 = calculate_constant_product(
             token_a_amount_desired as u128,
             token_b_amount_desired as u128,
@@ -155,26 +155,12 @@ pub fn handler(
         lp_tokens_to_mint,
         ctx.bumps.lp_token_mint,
     )?;
-    ctx.accounts.liquidity_pool.token_a_reserves = ctx
-        .accounts
-        .liquidity_pool
-        .token_a_reserves
-        .checked_add(
-            token_a_deposit_amount
-                .try_into()
-                .map_err(|_| MathError::OverflowError)?,
-        )
-        .ok_or(MathError::OverflowError)?;
-    ctx.accounts.liquidity_pool.token_b_reserves = ctx
-        .accounts
-        .liquidity_pool
-        .token_b_reserves
-        .checked_add(
-            token_b_deposit_amount
-                .try_into()
-                .map_err(|_| MathError::OverflowError)?,
-        )
-        .ok_or(MathError::OverflowError)?;
+
+    // Reload vaults and sync reserves
+    ctx.accounts.token_a_vault.reload()?;
+    ctx.accounts.token_b_vault.reload()?;
+    ctx.accounts.sync_reserves();
+
     Ok(())
 }
 
@@ -285,5 +271,19 @@ impl<'info> VaultDepositor<'info> for Deposit<'info> {
 
     fn signer(&self) -> &Signer<'info> {
         &self.signer
+    }
+}
+
+impl<'info> ReserveSyncer<'info> for Deposit<'info> {
+    fn liquidity_pool(&mut self) -> &mut Account<'info, LiquidityPool> {
+        &mut self.liquidity_pool
+    }
+
+    fn token_a_vault(&self) -> &Account<'info, TokenAccount> {
+        &self.token_a_vault
+    }
+
+    fn token_b_vault(&self) -> &Account<'info, TokenAccount> {
+        &self.token_b_vault
     }
 }

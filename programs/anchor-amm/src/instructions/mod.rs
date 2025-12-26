@@ -5,8 +5,10 @@
 pub mod deposit;
 pub mod initialize_pool;
 pub mod skim_reserves;
+pub mod swap;
 pub mod sync_reserves;
 pub use deposit::*;
 pub use initialize_pool::*;
 pub use skim_reserves::*;
+pub use swap::*;
 pub use sync_reserves::*;

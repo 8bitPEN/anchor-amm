@@ -75,3 +75,34 @@ pub fn calculate_constant_product(token_a_amount: u128, token_b_amount: u128) ->
         .checked_mul(token_b_amount)
         .ok_or(MathError::OverflowError)?)
 }
+
+/// Calculates the output amount for a constant product swap.
+///
+/// Formula: `Δy = (y * Δx) / (x + Δx)`
+///
+/// This is derived from the constant product invariant `x * y = k`:
+/// - After swap: `(x + Δx) * (y - Δy) = k`
+/// - Solving for Δy gives the formula above
+///
+/// # Arguments
+/// * `amount_in` - The input token amount (Δx)
+/// * `reserve_in` - The input token's reserve (x)
+/// * `reserve_out` - The output token's reserve (y)
+///
+/// # Returns
+/// The output token amount (Δy)
+///
+/// # Errors
+/// * `MathError::OverflowError` - If any arithmetic operation overflows
+/// * `MathError::ZeroDivisionError` - If `reserve_in + amount_in` is zero
+pub fn get_amount_out(amount_in: u128, reserve_in: u128, reserve_out: u128) -> Result<u128> {
+    let numerator = reserve_out
+        .checked_mul(amount_in)
+        .ok_or(MathError::OverflowError)?;
+    let denominator = reserve_in
+        .checked_add(amount_in)
+        .ok_or(MathError::OverflowError)?;
+    numerator
+        .checked_div(denominator)
+        .ok_or(MathError::ZeroDivisionError.into())
+}

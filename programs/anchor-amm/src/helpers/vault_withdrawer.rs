@@ -14,6 +14,32 @@ pub trait VaultWithdrawer<'info> {
     fn liquidity_pool(&self) -> &Account<'info, LiquidityPool>;
 
     fn withdraw(&self, token_a_amount: u64, token_b_amount: u64) -> Result<()> {
+        if token_a_amount > 0 {
+            self.withdraw_token(
+                &self.token_a_mint(),
+                &self.token_a_vault(),
+                &self.token_a_signer_token_account(),
+                token_a_amount,
+            )?;
+        }
+        if token_b_amount > 0 {
+            self.withdraw_token(
+                &self.token_b_mint(),
+                &self.token_b_vault(),
+                &self.token_b_signer_token_account(),
+                token_b_amount,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn withdraw_token(
+        &self,
+        mint: &Account<'info, Mint>,
+        vault: &Account<'info, TokenAccount>,
+        destination: &Account<'info, TokenAccount>,
+        amount: u64,
+    ) -> Result<()> {
         let token_a_key = self.token_a_mint().key();
         let token_b_key = self.token_b_mint().key();
         let bump = self.liquidity_pool().bump;
@@ -25,37 +51,17 @@ pub trait VaultWithdrawer<'info> {
             &[bump],
         ]];
 
-        let token_a_transfer_ctx = CpiContext::new_with_signer(
+        let transfer_ctx = CpiContext::new_with_signer(
             self.token_program().to_account_info(),
             TransferChecked {
-                from: self.token_a_vault().to_account_info(),
-                to: self.token_a_signer_token_account().to_account_info(),
-                mint: self.token_a_mint().to_account_info(),
-                authority: self.liquidity_pool().to_account_info(),
-            },
-            signer_seeds,
-        );
-        let token_b_transfer_ctx = CpiContext::new_with_signer(
-            self.token_program().to_account_info(),
-            TransferChecked {
-                from: self.token_b_vault().to_account_info(),
-                to: self.token_b_signer_token_account().to_account_info(),
-                mint: self.token_b_mint().to_account_info(),
+                from: vault.to_account_info(),
+                to: destination.to_account_info(),
+                mint: mint.to_account_info(),
                 authority: self.liquidity_pool().to_account_info(),
             },
             signer_seeds,
         );
 
-        transfer_checked(
-            token_a_transfer_ctx,
-            token_a_amount,
-            self.token_a_mint().decimals,
-        )?;
-        transfer_checked(
-            token_b_transfer_ctx,
-            token_b_amount,
-            self.token_b_mint().decimals,
-        )?;
-        Ok(())
+        transfer_checked(transfer_ctx, amount, mint.decimals)
     }
 }

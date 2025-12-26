@@ -39,4 +39,8 @@ pub mod anchor_amm {
     pub fn skim(ctx: Context<SkimReserves>) -> Result<()> {
         skim_reserves::handler(ctx)
     }
+    //TODO (Pen): there could be a deadline here so trade can expire
+    pub fn swap(ctx: Context<Swap>, token_a_amount: u64, token_b_min_amount: u64) -> Result<()> {
+        swap::handler(ctx, token_a_amount, token_b_min_amount)
+    }
 }

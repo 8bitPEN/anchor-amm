@@ -18,44 +18,51 @@ pub trait VaultDepositor<'info> {
     /// Transfers liquidity from the signer's token accounts to the pool vaults.
     ///
     /// Performs two CPI calls to transfer tokens:
-    /// - Token A from `token_a_signer_token_account` → `token_a_vault`
-    /// - Token B from `token_b_signer_token_account` → `token_b_vault`
+    /// - Token 0 from `token_a_signer_token_account` → `token_a_vault`
+    /// - Token 1 from `token_b_signer_token_account` → `token_b_vault`
     ///
     /// # Arguments
-    /// * `token_a_amount` - Amount of token A to deposit (in token A's native decimals)
-    /// * `token_b_amount` - Amount of token B to deposit (in token B's native decimals)
+    /// * `token_a_amount` - Amount of token 0 to deposit (in token 0's native decimals)
+    /// * `token_b_amount` - Amount of token 1 to deposit (in token 1's native decimals)
     ///
     /// # Errors
     /// Returns an error if either transfer CPI fails (e.g., insufficient balance).
     fn deposit(&self, token_a_amount: u64, token_b_amount: u64) -> Result<()> {
-        let token_a_transfer_ctx = CpiContext::new(
-            self.token_program().to_account_info(),
-            TransferChecked {
-                from: self.token_a_signer_token_account().to_account_info(),
-                mint: self.token_a_mint().to_account_info(),
-                to: self.token_a_vault().to_account_info(),
-                authority: self.signer().to_account_info(),
-            },
-        );
-        let token_b_transfer_ctx = CpiContext::new(
-            self.token_program().to_account_info(),
-            TransferChecked {
-                from: self.token_b_signer_token_account().to_account_info(),
-                mint: self.token_b_mint().to_account_info(),
-                to: self.token_b_vault().to_account_info(),
-                authority: self.signer().to_account_info(),
-            },
-        );
-        transfer_checked(
-            token_a_transfer_ctx,
-            token_a_amount,
-            self.token_a_mint().decimals,
-        )?;
-        transfer_checked(
-            token_b_transfer_ctx,
-            token_b_amount,
-            self.token_b_mint().decimals,
-        )?;
+        if token_a_amount > 0 {
+            self.deposit_token(
+                &self.token_a_mint(),
+                &self.token_a_signer_token_account(),
+                &self.token_a_vault(),
+                token_a_amount,
+            )?;
+        }
+        if token_b_amount > 0 {
+            self.deposit_token(
+                &self.token_b_mint(),
+                &self.token_b_signer_token_account(),
+                &self.token_b_vault(),
+                token_b_amount,
+            )?;
+        }
         Ok(())
+    }
+
+    fn deposit_token(
+        &self,
+        mint: &Account<'info, Mint>,
+        from: &Account<'info, TokenAccount>,
+        to: &Account<'info, TokenAccount>,
+        amount: u64,
+    ) -> Result<()> {
+        let transfer_ctx = CpiContext::new(
+            self.token_program().to_account_info(),
+            TransferChecked {
+                from: from.to_account_info(),
+                mint: mint.to_account_info(),
+                to: to.to_account_info(),
+                authority: self.signer().to_account_info(),
+            },
+        );
+        transfer_checked(transfer_ctx, amount, mint.decimals)
     }
 }
