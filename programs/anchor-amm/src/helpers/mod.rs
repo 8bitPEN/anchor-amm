@@ -1,8 +1,10 @@
+pub mod lp_burner;
 pub mod lp_minter;
 pub mod math;
 pub mod reserve_syncer;
 pub mod vault_depositor;
 pub mod vault_withdrawer;
+pub use lp_burner::*;
 pub use lp_minter::*;
 pub use math::*;
 pub use reserve_syncer::*;

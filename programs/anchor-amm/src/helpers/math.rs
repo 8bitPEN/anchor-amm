@@ -106,3 +106,29 @@ pub fn get_amount_out(amount_in: u128, reserve_in: u128, reserve_out: u128) -> R
         .checked_div(denominator)
         .ok_or(MathError::ZeroDivisionError.into())
 }
+
+/// Calculates the amount of tokens received when burning LP tokens.
+///
+/// Formula: `amount_out = (reserves * lp_amount) / lp_supply`
+///
+/// This gives the proportional share of a token reserve based on
+/// the fraction of total LP supply being burned.
+///
+/// # Arguments
+/// * `reserves` - The token's current reserve in the pool
+/// * `lp_amount` - The amount of LP tokens being burned
+/// * `lp_supply` - The total supply of LP tokens
+///
+/// # Returns
+/// The amount of tokens to withdraw
+///
+/// # Errors
+/// * `MathError::OverflowError` - If multiplication overflows
+/// * `MathError::ZeroDivisionError` - If `lp_supply` is zero
+pub fn get_withdraw_amount(reserves: u128, lp_amount: u128, lp_supply: u128) -> Result<u128> {
+    reserves
+        .checked_mul(lp_amount)
+        .ok_or(MathError::OverflowError)?
+        .checked_div(lp_supply)
+        .ok_or(MathError::ZeroDivisionError.into())
+}

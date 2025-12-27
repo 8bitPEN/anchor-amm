@@ -9,14 +9,11 @@ use crate::{
     helpers::{calculate_constant_product, quote, LPMinter, ReserveSyncer, VaultDepositor},
     LiquidityPool, LIQUIDITY_POOL_SEED,
 };
-// TODO (Pen): What happens if an attacker just sends coins to the ATA of the liquidity pool? The fix is probably to keep count of the actual reserves
-// TODO (Pen): Sync + Skim functions could be useful for that ^
+
 // TODO (Pen): Should there be deposit fees? Not gonna bother with fees for now.
 // TODO (Pen): Make the precision have a bigger upper limit (19).
-// OPTIMIZE (Pen): Maybe making the initialize instruction only to initialize would be better,
-// OPTIMIZE (Pen): so that the user doesn't need to actually deposit immediately
-// TODO (Pen): Minimum liquidity burn
 // TODO (Pen): Time based deadline like uniswap
+// TODO (Pen): Think about wrapped SOL
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(mut)]
@@ -273,7 +270,6 @@ impl<'info> VaultDepositor<'info> for Deposit<'info> {
         &self.signer
     }
 }
-
 impl<'info> ReserveSyncer<'info> for Deposit<'info> {
     fn liquidity_pool(&mut self) -> &mut Account<'info, LiquidityPool> {
         &mut self.liquidity_pool
