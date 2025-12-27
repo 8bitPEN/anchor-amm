@@ -13,6 +13,7 @@ use crate::{
 // TODO (Pen): Should there be deposit fees? Not gonna bother with fees for now.
 // TODO (Pen): Make the precision have a bigger upper limit (19).
 // TODO (Pen): Think about wrapped SOL
+// TODO (Pen): Price oracle
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(mut)]
@@ -112,7 +113,11 @@ pub fn handler(
         .isqrt()
         .try_into()
         .map_err(|_| MathError::Overflow)?;
-        require_gt!(lp_tokens_to_mint, 1000, AmmError::InsufficientInitialLiquidity);
+        require_gt!(
+            lp_tokens_to_mint,
+            1000,
+            AmmError::InsufficientInitialLiquidity
+        );
         ctx.accounts.mint_lp_tokens(
             &ctx.accounts.lp_token_system_program_token_account,
             1000,
