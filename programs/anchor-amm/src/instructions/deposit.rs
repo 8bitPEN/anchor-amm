@@ -5,14 +5,13 @@ use anchor_spl::{
 };
 
 use crate::{
-    error::{AMMError, MathError},
+    error::{AmmError, MathError},
     helpers::{calculate_constant_product, quote, LPMinter, ReserveSyncer, VaultDepositor},
     LiquidityPool, LIQUIDITY_POOL_SEED,
 };
 
 // TODO (Pen): Should there be deposit fees? Not gonna bother with fees for now.
 // TODO (Pen): Make the precision have a bigger upper limit (19).
-// TODO (Pen): Time based deadline like uniswap
 // TODO (Pen): Think about wrapped SOL
 #[derive(Accounts)]
 pub struct Deposit<'info> {
@@ -62,7 +61,7 @@ pub struct Deposit<'info> {
     pub lp_token_mint: Account<'info, Mint>,
     #[account(
         mut,
-        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_bytes(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,
@@ -86,10 +85,16 @@ pub fn handler(
     token_b_amount_desired: u64,
     token_a_amount_min: u64,
     token_b_amount_min: u64,
+    expiration: i64,
 ) -> Result<()> {
     require!(
         token_a_amount_desired > 0 && token_b_amount_desired > 0,
-        AMMError::ZeroInputAmount
+        AmmError::ZeroAmount
+    );
+    require_gt!(
+        expiration,
+        Clock::get()?.unix_timestamp,
+        AmmError::DeadlineExceeded,
     );
     if ctx.accounts.lp_token_mint.supply == 0 {
         ctx.accounts
@@ -106,8 +111,8 @@ pub fn handler(
         )?
         .isqrt()
         .try_into()
-        .map_err(|_| MathError::OverflowError)?;
-        require_gt!(lp_tokens_to_mint, 1000, AMMError::LowLiquidity);
+        .map_err(|_| MathError::Overflow)?;
+        require_gt!(lp_tokens_to_mint, 1000, AmmError::InsufficientInitialLiquidity);
         ctx.accounts.mint_lp_tokens(
             &ctx.accounts.lp_token_system_program_token_account,
             1000,
@@ -133,20 +138,20 @@ pub fn handler(
     ctx.accounts.deposit(
         token_a_deposit_amount
             .try_into()
-            .map_err(|_| MathError::OverflowError)?,
+            .map_err(|_| MathError::Overflow)?,
         token_b_deposit_amount
             .try_into()
-            .map_err(|_| MathError::OverflowError)?,
+            .map_err(|_| MathError::Overflow)?,
     )?;
     //NOTE in Uniswap, they decide how many tokens to mint based on the minimum ratio, but since we have already optimized the deposits,
     //NOTE it's safe to just go with token a, since it should be equal to token_b.
     let lp_tokens_to_mint: u64 = token_a_deposit_amount
         .checked_mul(ctx.accounts.lp_token_mint.supply as u128)
-        .ok_or(MathError::OverflowError)?
+        .ok_or(MathError::Overflow)?
         .checked_div(ctx.accounts.liquidity_pool.token_a_reserves as u128)
-        .ok_or(MathError::ZeroDivisionError)?
+        .ok_or(MathError::DivisionByZero)?
         .try_into()
-        .map_err(|_| MathError::OverflowError)?;
+        .map_err(|_| MathError::Overflow)?;
     ctx.accounts.mint_lp_tokens(
         &ctx.accounts.lp_token_signer_token_account,
         lp_tokens_to_mint,
@@ -185,7 +190,7 @@ impl<'info> Deposit<'info> {
     /// A tuple `(token_a_amount, token_b_amount)` representing the optimized deposit amounts.
     ///
     /// # Errors
-    /// Returns `AMMError::SlippageLimitExceeded` if the optimal amounts fall below minimums.
+    /// Returns `AmmError::SlippageExceeded` if the optimal amounts fall below minimums.
     pub fn optimize_deposit_amounts(
         &self,
         token_a_amount_desired: u128,
@@ -203,7 +208,7 @@ impl<'info> Deposit<'info> {
         if token_b_optimal_amount <= token_b_amount_desired {
             require!(
                 token_b_optimal_amount >= token_b_amount_min,
-                AMMError::SlippageLimitExceeded
+                AmmError::SlippageExceeded
             );
             return Ok((token_a_amount_desired, token_b_optimal_amount));
         } else {
@@ -214,7 +219,7 @@ impl<'info> Deposit<'info> {
             )?;
             require!(
                 token_a_optimal_amount >= token_a_amount_min,
-                AMMError::SlippageLimitExceeded
+                AmmError::SlippageExceeded
             );
             return Ok((token_a_optimal_amount, token_b_amount_desired));
         }

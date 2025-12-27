@@ -1,7 +1,7 @@
 pub use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-use crate::{error::AMMError, helpers::VaultWithdrawer, LiquidityPool, LIQUIDITY_POOL_SEED};
+use crate::{error::AmmError, helpers::VaultWithdrawer, LiquidityPool, LIQUIDITY_POOL_SEED};
 
 #[derive(Accounts)]
 pub struct SkimReserves<'info> {
@@ -9,7 +9,7 @@ pub struct SkimReserves<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_bytes(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,
@@ -58,7 +58,7 @@ pub fn handler(ctx: Context<SkimReserves>) -> Result<()> {
 
     require!(
         token_a_excess > 0 || token_b_excess > 0,
-        AMMError::NothingToSkim
+        AmmError::NoExcessTokens
     );
 
     ctx.accounts.withdraw(token_a_excess, token_b_excess)?;

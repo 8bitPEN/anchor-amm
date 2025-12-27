@@ -5,7 +5,7 @@ use anchor_spl::{
 };
 
 use crate::{
-    error::{AMMError, MathError},
+    error::{AmmError, MathError},
     helpers::{get_amount_out, ReserveSyncer, VaultDepositor, VaultWithdrawer},
     LiquidityPool, LIQUIDITY_POOL_SEED,
 };
@@ -49,7 +49,7 @@ pub struct Swap<'info> {
     pub lp_token_mint: Account<'info, Mint>,
     #[account(
         mut,
-        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_0_mint.key().as_ref(), token_1_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_bytes(), token_0_mint.key().as_ref(), token_1_mint.key().as_ref()],
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,
@@ -57,14 +57,24 @@ pub struct Swap<'info> {
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
-pub fn handler(ctx: Context<Swap>, token_0_amount: u64, token_1_min_amount: u64) -> Result<()> {
+pub fn handler(
+    ctx: Context<Swap>,
+    token_0_amount: u64,
+    token_1_min_amount: u64,
+    expiration: i64,
+) -> Result<()> {
     require!(
         token_0_amount > 0 || token_1_min_amount > 0,
-        AMMError::ZeroInputAmount
+        AmmError::ZeroAmount
+    );
+    require_gt!(
+        expiration,
+        Clock::get()?.unix_timestamp,
+        AmmError::DeadlineExceeded,
     );
     require!(
         token_1_min_amount < ctx.accounts.token_1_vault.amount,
-        AMMError::InsufficientLiquidity
+        AmmError::InsufficientLiquidity
     );
     let token_1_out: u64 = get_amount_out(
         token_0_amount as u128,
@@ -72,12 +82,8 @@ pub fn handler(ctx: Context<Swap>, token_0_amount: u64, token_1_min_amount: u64)
         ctx.accounts.liquidity_pool.token_b_reserves as u128,
     )?
     .try_into()
-    .map_err(|_| MathError::OverflowError)?;
-    require_gt!(
-        token_1_out,
-        token_1_min_amount,
-        AMMError::SlippageLimitExceeded
-    );
+    .map_err(|_| MathError::Overflow)?;
+    require_gt!(token_1_out, token_1_min_amount, AmmError::SlippageExceeded);
 
     // Deposit token_0 from user into vault
     ctx.accounts.deposit_token(

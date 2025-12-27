@@ -24,6 +24,7 @@ pub mod anchor_amm {
         token_b_amount_desired: u64,
         token_a_amount_min: u64,
         token_b_amount_min: u64,
+        expiration: i64,
     ) -> Result<()> {
         deposit::handler(
             ctx,
@@ -31,6 +32,7 @@ pub mod anchor_amm {
             token_b_amount_desired,
             token_a_amount_min,
             token_b_amount_min,
+            expiration,
         )
     }
     pub fn sync(ctx: Context<SyncReserves>) -> Result<()> {
@@ -39,8 +41,27 @@ pub mod anchor_amm {
     pub fn skim(ctx: Context<SkimReserves>) -> Result<()> {
         skim_reserves::handler(ctx)
     }
-    //TODO (Pen): there could be a deadline here so trade can expire
-    pub fn swap(ctx: Context<Swap>, token_a_amount: u64, token_b_min_amount: u64) -> Result<()> {
-        swap::handler(ctx, token_a_amount, token_b_min_amount)
+    pub fn swap(
+        ctx: Context<Swap>,
+        token_0_amount: u64,
+        token_1_min_amount: u64,
+        expiration: i64,
+    ) -> Result<()> {
+        swap::handler(ctx, token_0_amount, token_1_min_amount, expiration)
+    }
+    pub fn withdraw(
+        ctx: Context<Withdraw>,
+        lp_amount_to_burn: u64,
+        amount_a_min: u64,
+        amount_b_min: u64,
+        expiration: i64,
+    ) -> Result<()> {
+        withdraw::handler(
+            ctx,
+            lp_amount_to_burn,
+            amount_a_min,
+            amount_b_min,
+            expiration,
+        )
     }
 }

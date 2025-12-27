@@ -5,7 +5,7 @@ use anchor_spl::{
 };
 
 use crate::{
-    error::{AMMError, MathError},
+    error::{AmmError, MathError},
     helpers::{get_withdraw_amount, LPBurner, ReserveSyncer, VaultWithdrawer},
     LiquidityPool, LIQUIDITY_POOL_SEED,
 };
@@ -57,7 +57,7 @@ pub struct Withdraw<'info> {
     pub lp_token_mint: Account<'info, Mint>,
     #[account(
         mut,
-        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_bytes(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,
@@ -70,8 +70,14 @@ pub fn handler(
     lp_amount_to_burn: u64,
     amount_a_min: u64,
     amount_b_min: u64,
+    expiration: i64,
 ) -> Result<()> {
-    require!(lp_amount_to_burn > 0, AMMError::ZeroInputAmount);
+    require!(lp_amount_to_burn > 0, AmmError::ZeroAmount);
+    require_gt!(
+        expiration,
+        Clock::get()?.unix_timestamp,
+        AmmError::DeadlineExceeded,
+    );
 
     let lp_supply = ctx.accounts.lp_token_mint.supply as u128;
     let lp_amount = lp_amount_to_burn as u128;
@@ -82,7 +88,7 @@ pub fn handler(
         lp_supply,
     )?
     .try_into()
-    .map_err(|_| MathError::OverflowError)?;
+    .map_err(|_| MathError::Overflow)?;
 
     let token_b_out: u64 = get_withdraw_amount(
         ctx.accounts.liquidity_pool.token_b_reserves as u128,
@@ -90,16 +96,16 @@ pub fn handler(
         lp_supply,
     )?
     .try_into()
-    .map_err(|_| MathError::OverflowError)?;
+    .map_err(|_| MathError::Overflow)?;
 
     require!(
         token_a_out >= amount_a_min && token_b_out >= amount_b_min,
-        AMMError::SlippageLimitExceeded
+        AmmError::SlippageExceeded
     );
 
     require!(
         token_a_out > 0 && token_b_out > 0,
-        AMMError::InsufficientLiquidity
+        AmmError::InsufficientLiquidity
     );
 
     ctx.accounts.withdraw(token_a_out, token_b_out)?;

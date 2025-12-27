@@ -1,5 +1,5 @@
 use crate::{LIQUIDITY_POOL_SEED, LiquidityPool};
-use crate::error::AMMError;
+use crate::error::AmmError;
 use crate::helpers::common_precision;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
@@ -56,7 +56,7 @@ pub struct InitializePool<'info> {
         payer = signer,
         mint::decimals = token_a_mint.decimals.max(token_b_mint.decimals),
         mint::authority = lp_token_mint.key(),
-        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_bytes(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
     pub lp_token_mint: Account<'info, Mint>,
@@ -79,7 +79,7 @@ pub fn handler(
     require_keys_neq!(
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(), 
-        AMMError::TokenMintsEqual
+        AmmError::IdenticalMints
     ); 
     let precision = common_precision(
         ctx.accounts.token_a_mint.decimals, 

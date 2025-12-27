@@ -45,7 +45,7 @@ pub trait VaultWithdrawer<'info> {
         let bump = self.liquidity_pool().bump;
 
         let signer_seeds: &[&[&[u8]]] = &[&[
-            LIQUIDITY_POOL_SEED.as_ref(),
+            LIQUIDITY_POOL_SEED.as_bytes(),
             token_a_key.as_ref(),
             token_b_key.as_ref(),
             &[bump],

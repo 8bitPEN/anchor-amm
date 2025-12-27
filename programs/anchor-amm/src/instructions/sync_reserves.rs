@@ -6,7 +6,7 @@ use crate::{helpers::ReserveSyncer, LiquidityPool, LIQUIDITY_POOL_SEED};
 pub struct SyncReserves<'info> {
     #[account(
         mut,
-        seeds = [LIQUIDITY_POOL_SEED.as_ref(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        seeds = [LIQUIDITY_POOL_SEED.as_bytes(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,
