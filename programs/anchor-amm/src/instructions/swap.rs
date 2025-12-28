@@ -76,8 +76,13 @@ pub fn handler(
         token_1_min_amount < ctx.accounts.token_1_vault.amount,
         AmmError::InsufficientLiquidity
     );
+    let token_0_amount_with_fees = (token_0_amount as u128)
+        .checked_mul(997)
+        .ok_or(MathError::Overflow)?
+        .checked_div(1000)
+        .ok_or(MathError::Overflow)?;
     let token_1_out: u64 = get_amount_out(
-        token_0_amount as u128,
+        token_0_amount_with_fees,
         ctx.accounts.liquidity_pool.token_a_reserves as u128,
         ctx.accounts.liquidity_pool.token_b_reserves as u128,
     )?
