@@ -16,14 +16,14 @@ pub struct InitializePool<'info> {
         associated_token::authority = signer,
         associated_token::token_program = token_program
     )]
-    pub token_a_signer_token_account: Account<'info, TokenAccount>,
+    pub token_a_signer_token_account: Box<Account<'info, TokenAccount>>,
     #[account(
         mut,
         associated_token::mint = token_b_mint,
         associated_token::authority = signer,
         associated_token::token_program = token_program
     )]
-    pub token_b_signer_token_account: Account<'info, TokenAccount>,
+    pub token_b_signer_token_account: Box<Account<'info, TokenAccount>>,
     #[account(
         init,
         payer = signer,
@@ -31,7 +31,7 @@ pub struct InitializePool<'info> {
         associated_token::authority = liquidity_pool,
         associated_token::token_program = token_program
     )]
-    pub token_a_vault: Account<'info, TokenAccount>,
+    pub token_a_vault: Box<Account<'info, TokenAccount>>,
     #[account(
         init,
         payer = signer,
@@ -39,9 +39,9 @@ pub struct InitializePool<'info> {
         associated_token::authority = liquidity_pool,
         associated_token::token_program = token_program
     )]
-    pub token_b_vault: Account<'info, TokenAccount>,
-    pub token_a_mint: Account<'info, Mint>,
-    pub token_b_mint: Account<'info, Mint>,
+    pub token_b_vault: Box<Account<'info, TokenAccount>>,
+    pub token_a_mint: Box<Account<'info, Mint>>,
+    pub token_b_mint: Box<Account<'info, Mint>>,
     #[account(
         init,
         payer = signer,
@@ -49,16 +49,16 @@ pub struct InitializePool<'info> {
         bump,
         space = LiquidityPool::DISCRIMINATOR.len() + LiquidityPool::INIT_SPACE,
     )]
-    pub liquidity_pool: Account<'info, LiquidityPool>,
+    pub liquidity_pool: Box<Account<'info, LiquidityPool>>,
     #[account(
-        init, 
+        init,
         payer = signer,
         mint::decimals = token_a_mint.decimals.max(token_b_mint.decimals),
         mint::authority = lp_token_mint.key(),
         seeds = [LIQUIDITY_POOL_SEED.as_bytes(), token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
-    pub lp_token_mint: Account<'info, Mint>,
+    pub lp_token_mint: Box<Account<'info, Mint>>,
     #[account(
         init_if_needed,
         payer = signer,
@@ -66,7 +66,7 @@ pub struct InitializePool<'info> {
         associated_token::authority = signer,
         associated_token::token_program = token_program
     )]
-    pub lp_token_signer_token_account: Account<'info, TokenAccount>,
+    pub lp_token_signer_token_account: Box<Account<'info, TokenAccount>>,
     /// Protocol fee LP token account owned by the pool PDA
     #[account(
         init,
@@ -75,7 +75,7 @@ pub struct InitializePool<'info> {
         associated_token::authority = liquidity_pool,
         associated_token::token_program = token_program
     )]
-    pub fee_lp_token_account: Account<'info, TokenAccount>,
+    pub fee_lp_token_account: Box<Account<'info, TokenAccount>>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -89,7 +89,7 @@ pub fn handler(
         ctx.accounts.token_b_mint.key(), 
         AmmError::IdenticalMints
     ); 
-    *ctx.accounts.liquidity_pool = LiquidityPool {
+    **ctx.accounts.liquidity_pool = LiquidityPool {
         token_a_mint: ctx.accounts.token_a_mint.key(),
         token_b_mint: ctx.accounts.token_b_mint.key(),
         token_a_reserves: 0,
