@@ -6,7 +6,10 @@ use anchor_spl::{
 
 use crate::{
     error::{AmmError, MathError},
-    helpers::{calculate_constant_product, quote, LPMinter, ReserveSyncer, VaultDepositor},
+    helpers::{
+        calculate_constant_product, quote, LPMinter, ProtocolFeeMinter, ReserveSyncer,
+        VaultDepositor,
+    },
     LiquidityPool, LIQUIDITY_POOL_SEED,
 };
 
@@ -66,6 +69,14 @@ pub struct Deposit<'info> {
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,
+    /// Protocol fee LP token account owned by the pool PDA
+    #[account(
+        mut,
+        associated_token::mint = lp_token_mint,
+        associated_token::authority = liquidity_pool,
+        associated_token::token_program = token_program
+    )]
+    pub fee_lp_token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -105,7 +116,10 @@ pub fn handler(
         ctx.accounts.token_a_vault.reload()?;
         ctx.accounts.token_b_vault.reload()?;
         ctx.accounts.sync_reserves();
-
+        ctx.accounts.liquidity_pool.reload()?;
+        ctx.accounts.liquidity_pool.k_last = (ctx.accounts.liquidity_pool.token_a_reserves as u128)
+            .checked_mul(ctx.accounts.liquidity_pool.token_b_reserves as u128)
+            .ok_or(MathError::Overflow)?;
         let lp_tokens_to_mint: u64 = calculate_constant_product(
             token_a_amount_desired as u128,
             token_b_amount_desired as u128,
@@ -134,6 +148,10 @@ pub fn handler(
     let token_b_amount_desired = token_b_amount_desired as u128;
     let token_a_amount_min = token_a_amount_min as u128;
     let token_b_amount_min = token_b_amount_min as u128;
+
+    // Mint protocol fees before adding liquidity
+    ctx.accounts.mint_protocol_fee(ctx.bumps.lp_token_mint)?;
+    ctx.accounts.lp_token_mint.reload()?;
     let (token_a_deposit_amount, token_b_deposit_amount) = ctx.accounts.optimize_deposit_amounts(
         token_a_amount_desired,
         token_b_amount_desired,
@@ -167,6 +185,11 @@ pub fn handler(
     ctx.accounts.token_a_vault.reload()?;
     ctx.accounts.token_b_vault.reload()?;
     ctx.accounts.sync_reserves();
+
+    // Update k_last for protocol fee tracking
+    ctx.accounts.liquidity_pool.k_last = (ctx.accounts.liquidity_pool.token_a_reserves as u128)
+        .checked_mul(ctx.accounts.liquidity_pool.token_b_reserves as u128)
+        .ok_or(MathError::Overflow)?;
 
     Ok(())
 }
@@ -291,5 +314,15 @@ impl<'info> ReserveSyncer<'info> for Deposit<'info> {
 
     fn token_b_vault(&self) -> &Account<'info, TokenAccount> {
         &self.token_b_vault
+    }
+}
+
+impl<'info> ProtocolFeeMinter<'info> for Deposit<'info> {
+    fn fee_lp_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.fee_lp_token_account
+    }
+
+    fn liquidity_pool(&self) -> &Account<'info, LiquidityPool> {
+        &self.liquidity_pool
     }
 }

@@ -21,7 +21,8 @@ pub enum AmmError {
     IdenticalMints,
     #[msg("Transaction deadline has passed")]
     DeadlineExceeded,
-
+    #[msg("Mismatch in input mints")]
+    MintMismatch,
     // Liquidity errors
     #[msg("Pool has insufficient liquidity for this operation")]
     InsufficientLiquidity,

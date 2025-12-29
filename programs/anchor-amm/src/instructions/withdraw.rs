@@ -6,7 +6,9 @@ use anchor_spl::{
 
 use crate::{
     error::{AmmError, MathError},
-    helpers::{get_withdraw_amount, LPBurner, ReserveSyncer, VaultWithdrawer},
+    helpers::{
+        get_withdraw_amount, LPBurner, LPMinter, ProtocolFeeMinter, ReserveSyncer, VaultWithdrawer,
+    },
     LiquidityPool, LIQUIDITY_POOL_SEED,
 };
 
@@ -61,6 +63,13 @@ pub struct Withdraw<'info> {
         bump
     )]
     pub liquidity_pool: Account<'info, LiquidityPool>,
+    #[account(
+        mut,
+        associated_token::mint = lp_token_mint,
+        associated_token::authority = liquidity_pool,
+        associated_token::token_program = token_program
+    )]
+    pub fee_lp_token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -79,6 +88,9 @@ pub fn handler(
         AmmError::DeadlineExceeded,
     );
 
+    // Mint protocol fees before removing liquidity
+    ctx.accounts.mint_protocol_fee(ctx.bumps.lp_token_mint)?;
+    ctx.accounts.lp_token_mint.reload()?;
     let lp_supply = ctx.accounts.lp_token_mint.supply as u128;
     let lp_amount = lp_amount_to_burn as u128;
 
@@ -115,6 +127,11 @@ pub fn handler(
     ctx.accounts.token_a_vault.reload()?;
     ctx.accounts.token_b_vault.reload()?;
     ctx.accounts.sync_reserves();
+
+    // Update k_last for protocol fee tracking
+    ctx.accounts.liquidity_pool.k_last = (ctx.accounts.liquidity_pool.token_a_reserves as u128)
+        .checked_mul(ctx.accounts.liquidity_pool.token_b_reserves as u128)
+        .ok_or(MathError::Overflow)?;
 
     Ok(())
 }
@@ -180,5 +197,33 @@ impl<'info> ReserveSyncer<'info> for Withdraw<'info> {
 
     fn token_b_vault(&self) -> &Account<'info, TokenAccount> {
         &self.token_b_vault
+    }
+}
+
+impl<'info> LPMinter<'info> for Withdraw<'info> {
+    fn token_program(&self) -> &Program<'info, Token> {
+        &self.token_program
+    }
+
+    fn token_a_mint(&self) -> &Account<'info, Mint> {
+        &self.token_a_mint
+    }
+
+    fn token_b_mint(&self) -> &Account<'info, Mint> {
+        &self.token_b_mint
+    }
+
+    fn lp_token_mint(&self) -> &Account<'info, Mint> {
+        &self.lp_token_mint
+    }
+}
+
+impl<'info> ProtocolFeeMinter<'info> for Withdraw<'info> {
+    fn fee_lp_token_account(&self) -> &Account<'info, TokenAccount> {
+        &self.fee_lp_token_account
+    }
+
+    fn liquidity_pool(&self) -> &Account<'info, LiquidityPool> {
+        &self.liquidity_pool
     }
 }

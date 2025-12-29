@@ -1,46 +1,5 @@
-use anchor_lang::prelude::*;
-use std::cmp::Ordering;
-
 use crate::error::{AmmError, MathError};
-// TODO (Pen): Revisit this, when you know more about max or min decimals and normalization
-pub fn normalize_amounts(
-    amount_a: u64,
-    precision_a: u8,
-    amount_b: u64,
-    precision_b: u8,
-) -> Result<(u64, u64, u8)> {
-    // maybe this isn't neccessary
-    require!(
-        precision_a > 0 && precision_a <= 12 && precision_b > 0 && precision_b <= 12,
-        MathError::InvalidPrecision
-    );
-    let precision_diff = precision_a.abs_diff(precision_b);
-    let padding = 10_u64.pow(precision_diff as u32);
-    // TODO casting up and down, this is dangerous now, gotta cast to u128 first before math'ing
-    let (adjusted_amount_a, adjusted_amount_b, precision) = match precision_a.cmp(&precision_b) {
-        Ordering::Equal => (amount_a, amount_b, precision_a),
-        Ordering::Greater => (
-            amount_a,
-            amount_b
-                .checked_mul(padding)
-                .ok_or(MathError::Overflow)?,
-            precision_a,
-        ),
-        Ordering::Less => (
-            amount_a
-                .checked_mul(padding)
-                .ok_or(MathError::Overflow)?,
-            amount_b,
-            precision_b,
-        ),
-    };
-    Ok((adjusted_amount_a, adjusted_amount_b, precision))
-}
-// TODO (Pen): Maybe a common precision would be better at 12 or something large.
-pub fn common_precision(precision_a: u8, precision_b: u8) -> u8 {
-    precision_a.max(precision_b)
-}
-
+use anchor_lang::prelude::*;
 /// Calculates the equivalent amount of token B for a given amount of token A,
 /// based on current pool reserves. Used for proportional deposits/withdrawals.
 ///

@@ -1,6 +1,5 @@
 use crate::{LIQUIDITY_POOL_SEED, LiquidityPool};
 use crate::error::AmmError;
-use crate::helpers::common_precision;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
@@ -68,6 +67,15 @@ pub struct InitializePool<'info> {
         associated_token::token_program = token_program
     )]
     pub lp_token_signer_token_account: Account<'info, TokenAccount>,
+    /// Protocol fee LP token account owned by the pool PDA
+    #[account(
+        init,
+        payer = signer,
+        associated_token::mint = lp_token_mint,
+        associated_token::authority = liquidity_pool,
+        associated_token::token_program = token_program
+    )]
+    pub fee_lp_token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -81,18 +89,12 @@ pub fn handler(
         ctx.accounts.token_b_mint.key(), 
         AmmError::IdenticalMints
     ); 
-    let precision = common_precision(
-        ctx.accounts.token_a_mint.decimals, 
-        ctx.accounts.token_b_mint.decimals,         
-    );
     *ctx.accounts.liquidity_pool = LiquidityPool {
         token_a_mint: ctx.accounts.token_a_mint.key(),
         token_b_mint: ctx.accounts.token_b_mint.key(),
         token_a_reserves: 0,
         token_b_reserves: 0,
-        lp_fee_bps: 3,
-        protocol_fee_bps: 2,
-        precision,
+        k_last: 0,
         bump: ctx.bumps.liquidity_pool,
     };
     Ok(())
