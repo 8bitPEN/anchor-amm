@@ -23,7 +23,7 @@ import {
 } from "../instructions";
 
 export const ANCHOR_AMM_PROGRAM_ADDRESS =
-  "7Zk1fV2VY517YbBFtWV76K58msXYcBjGoqsTauox1GcQ" as Address<"7Zk1fV2VY517YbBFtWV76K58msXYcBjGoqsTauox1GcQ">;
+  "2sU17QtTHDBCr4Q3pZGVUjE71fFyfjiuAjVGqRP91Be5" as Address<"2sU17QtTHDBCr4Q3pZGVUjE71fFyfjiuAjVGqRP91Be5">;
 
 export enum AnchorAmmAccount {
   LiquidityPool,
@@ -120,7 +120,7 @@ export function identifyAnchorAmmInstruction(
 }
 
 export type ParsedAnchorAmmInstruction<
-  TProgram extends string = "7Zk1fV2VY517YbBFtWV76K58msXYcBjGoqsTauox1GcQ",
+  TProgram extends string = "2sU17QtTHDBCr4Q3pZGVUjE71fFyfjiuAjVGqRP91Be5",
 > =
   | ({
       instructionType: AnchorAmmInstruction.Deposit;

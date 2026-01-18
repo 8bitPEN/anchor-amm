@@ -70,7 +70,6 @@ pub fn handler(
 ) -> Result<()> {
     let is_token_a = ctx.accounts.token_0_mint.key() == ctx.accounts.liquidity_pool.token_a_mint;
     ctx.accounts.validate(token_0_amount, token_1_min_amount, expiration, is_token_a)?;
-
     let token_0_amount_with_fees = (token_0_amount as u128)
         .checked_mul(997)
         .ok_or(MathError::Overflow)?

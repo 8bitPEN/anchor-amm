@@ -50,10 +50,6 @@ export function getInitializePoolDiscriminatorBytes() {
 export type InitializePoolInstruction<
   TProgram extends string = typeof ANCHOR_AMM_PROGRAM_ADDRESS,
   TAccountSigner extends string | AccountMeta<string> = string,
-  TAccountTokenASignerTokenAccount extends string | AccountMeta<string> =
-    string,
-  TAccountTokenBSignerTokenAccount extends string | AccountMeta<string> =
-    string,
   TAccountTokenAVault extends string | AccountMeta<string> = string,
   TAccountTokenBVault extends string | AccountMeta<string> = string,
   TAccountTokenAMint extends string | AccountMeta<string> = string,
@@ -78,12 +74,6 @@ export type InitializePoolInstruction<
         ? WritableSignerAccount<TAccountSigner> &
             AccountSignerMeta<TAccountSigner>
         : TAccountSigner,
-      TAccountTokenASignerTokenAccount extends string
-        ? WritableAccount<TAccountTokenASignerTokenAccount>
-        : TAccountTokenASignerTokenAccount,
-      TAccountTokenBSignerTokenAccount extends string
-        ? WritableAccount<TAccountTokenBSignerTokenAccount>
-        : TAccountTokenBSignerTokenAccount,
       TAccountTokenAVault extends string
         ? WritableAccount<TAccountTokenAVault>
         : TAccountTokenAVault,
@@ -152,8 +142,6 @@ export function getInitializePoolInstructionDataCodec(): FixedSizeCodec<
 
 export type InitializePoolAsyncInput<
   TAccountSigner extends string = string,
-  TAccountTokenASignerTokenAccount extends string = string,
-  TAccountTokenBSignerTokenAccount extends string = string,
   TAccountTokenAVault extends string = string,
   TAccountTokenBVault extends string = string,
   TAccountTokenAMint extends string = string,
@@ -167,8 +155,6 @@ export type InitializePoolAsyncInput<
   TAccountSystemProgram extends string = string,
 > = {
   signer: TransactionSigner<TAccountSigner>;
-  tokenASignerTokenAccount?: Address<TAccountTokenASignerTokenAccount>;
-  tokenBSignerTokenAccount?: Address<TAccountTokenBSignerTokenAccount>;
   tokenAVault?: Address<TAccountTokenAVault>;
   tokenBVault?: Address<TAccountTokenBVault>;
   tokenAMint: Address<TAccountTokenAMint>;
@@ -185,8 +171,6 @@ export type InitializePoolAsyncInput<
 
 export async function getInitializePoolInstructionAsync<
   TAccountSigner extends string,
-  TAccountTokenASignerTokenAccount extends string,
-  TAccountTokenBSignerTokenAccount extends string,
   TAccountTokenAVault extends string,
   TAccountTokenBVault extends string,
   TAccountTokenAMint extends string,
@@ -202,8 +186,6 @@ export async function getInitializePoolInstructionAsync<
 >(
   input: InitializePoolAsyncInput<
     TAccountSigner,
-    TAccountTokenASignerTokenAccount,
-    TAccountTokenBSignerTokenAccount,
     TAccountTokenAVault,
     TAccountTokenBVault,
     TAccountTokenAMint,
@@ -221,8 +203,6 @@ export async function getInitializePoolInstructionAsync<
   InitializePoolInstruction<
     TProgramAddress,
     TAccountSigner,
-    TAccountTokenASignerTokenAccount,
-    TAccountTokenBSignerTokenAccount,
     TAccountTokenAVault,
     TAccountTokenBVault,
     TAccountTokenAMint,
@@ -242,14 +222,6 @@ export async function getInitializePoolInstructionAsync<
   // Original accounts.
   const originalAccounts = {
     signer: { value: input.signer ?? null, isWritable: true },
-    tokenASignerTokenAccount: {
-      value: input.tokenASignerTokenAccount ?? null,
-      isWritable: true,
-    },
-    tokenBSignerTokenAccount: {
-      value: input.tokenBSignerTokenAccount ?? null,
-      isWritable: true,
-    },
     tokenAVault: { value: input.tokenAVault ?? null, isWritable: true },
     tokenBVault: { value: input.tokenBVault ?? null, isWritable: true },
     tokenAMint: { value: input.tokenAMint ?? null, isWritable: false },
@@ -277,32 +249,6 @@ export async function getInitializePoolInstructionAsync<
   >;
 
   // Resolve default values.
-  if (!accounts.tokenProgram.value) {
-    accounts.tokenProgram.value =
-      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
-  }
-  if (!accounts.tokenASignerTokenAccount.value) {
-    accounts.tokenASignerTokenAccount.value = await getProgramDerivedAddress({
-      programAddress:
-        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address<"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL">,
-      seeds: [
-        getAddressEncoder().encode(expectAddress(accounts.signer.value)),
-        getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.tokenAMint.value)),
-      ],
-    });
-  }
-  if (!accounts.tokenBSignerTokenAccount.value) {
-    accounts.tokenBSignerTokenAccount.value = await getProgramDerivedAddress({
-      programAddress:
-        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address<"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL">,
-      seeds: [
-        getAddressEncoder().encode(expectAddress(accounts.signer.value)),
-        getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.tokenBMint.value)),
-      ],
-    });
-  }
   if (!accounts.liquidityPool.value) {
     accounts.liquidityPool.value = await getProgramDerivedAddress({
       programAddress,
@@ -316,6 +262,10 @@ export async function getInitializePoolInstructionAsync<
         getAddressEncoder().encode(expectAddress(accounts.tokenBMint.value)),
       ],
     });
+  }
+  if (!accounts.tokenProgram.value) {
+    accounts.tokenProgram.value =
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
   if (!accounts.tokenAVault.value) {
     accounts.tokenAVault.value = await getProgramDerivedAddress({
@@ -345,7 +295,7 @@ export async function getInitializePoolInstructionAsync<
       seeds: [
         getBytesEncoder().encode(
           new Uint8Array([
-            108, 105, 113, 117, 105, 100, 105, 116, 121, 95, 112, 111, 111, 108,
+            108, 112, 95, 116, 111, 107, 101, 110, 95, 109, 105, 110, 116,
           ]),
         ),
         getAddressEncoder().encode(expectAddress(accounts.tokenAMint.value)),
@@ -388,8 +338,6 @@ export async function getInitializePoolInstructionAsync<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.signer),
-      getAccountMeta(accounts.tokenASignerTokenAccount),
-      getAccountMeta(accounts.tokenBSignerTokenAccount),
       getAccountMeta(accounts.tokenAVault),
       getAccountMeta(accounts.tokenBVault),
       getAccountMeta(accounts.tokenAMint),
@@ -407,8 +355,6 @@ export async function getInitializePoolInstructionAsync<
   } as InitializePoolInstruction<
     TProgramAddress,
     TAccountSigner,
-    TAccountTokenASignerTokenAccount,
-    TAccountTokenBSignerTokenAccount,
     TAccountTokenAVault,
     TAccountTokenBVault,
     TAccountTokenAMint,
@@ -425,8 +371,6 @@ export async function getInitializePoolInstructionAsync<
 
 export type InitializePoolInput<
   TAccountSigner extends string = string,
-  TAccountTokenASignerTokenAccount extends string = string,
-  TAccountTokenBSignerTokenAccount extends string = string,
   TAccountTokenAVault extends string = string,
   TAccountTokenBVault extends string = string,
   TAccountTokenAMint extends string = string,
@@ -440,8 +384,6 @@ export type InitializePoolInput<
   TAccountSystemProgram extends string = string,
 > = {
   signer: TransactionSigner<TAccountSigner>;
-  tokenASignerTokenAccount: Address<TAccountTokenASignerTokenAccount>;
-  tokenBSignerTokenAccount: Address<TAccountTokenBSignerTokenAccount>;
   tokenAVault: Address<TAccountTokenAVault>;
   tokenBVault: Address<TAccountTokenBVault>;
   tokenAMint: Address<TAccountTokenAMint>;
@@ -458,8 +400,6 @@ export type InitializePoolInput<
 
 export function getInitializePoolInstruction<
   TAccountSigner extends string,
-  TAccountTokenASignerTokenAccount extends string,
-  TAccountTokenBSignerTokenAccount extends string,
   TAccountTokenAVault extends string,
   TAccountTokenBVault extends string,
   TAccountTokenAMint extends string,
@@ -475,8 +415,6 @@ export function getInitializePoolInstruction<
 >(
   input: InitializePoolInput<
     TAccountSigner,
-    TAccountTokenASignerTokenAccount,
-    TAccountTokenBSignerTokenAccount,
     TAccountTokenAVault,
     TAccountTokenBVault,
     TAccountTokenAMint,
@@ -493,8 +431,6 @@ export function getInitializePoolInstruction<
 ): InitializePoolInstruction<
   TProgramAddress,
   TAccountSigner,
-  TAccountTokenASignerTokenAccount,
-  TAccountTokenBSignerTokenAccount,
   TAccountTokenAVault,
   TAccountTokenBVault,
   TAccountTokenAMint,
@@ -513,14 +449,6 @@ export function getInitializePoolInstruction<
   // Original accounts.
   const originalAccounts = {
     signer: { value: input.signer ?? null, isWritable: true },
-    tokenASignerTokenAccount: {
-      value: input.tokenASignerTokenAccount ?? null,
-      isWritable: true,
-    },
-    tokenBSignerTokenAccount: {
-      value: input.tokenBSignerTokenAccount ?? null,
-      isWritable: true,
-    },
     tokenAVault: { value: input.tokenAVault ?? null, isWritable: true },
     tokenBVault: { value: input.tokenBVault ?? null, isWritable: true },
     tokenAMint: { value: input.tokenAMint ?? null, isWritable: false },
@@ -565,8 +493,6 @@ export function getInitializePoolInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.signer),
-      getAccountMeta(accounts.tokenASignerTokenAccount),
-      getAccountMeta(accounts.tokenBSignerTokenAccount),
       getAccountMeta(accounts.tokenAVault),
       getAccountMeta(accounts.tokenBVault),
       getAccountMeta(accounts.tokenAMint),
@@ -584,8 +510,6 @@ export function getInitializePoolInstruction<
   } as InitializePoolInstruction<
     TProgramAddress,
     TAccountSigner,
-    TAccountTokenASignerTokenAccount,
-    TAccountTokenBSignerTokenAccount,
     TAccountTokenAVault,
     TAccountTokenBVault,
     TAccountTokenAMint,
@@ -607,20 +531,18 @@ export type ParsedInitializePoolInstruction<
   programAddress: Address<TProgram>;
   accounts: {
     signer: TAccountMetas[0];
-    tokenASignerTokenAccount: TAccountMetas[1];
-    tokenBSignerTokenAccount: TAccountMetas[2];
-    tokenAVault: TAccountMetas[3];
-    tokenBVault: TAccountMetas[4];
-    tokenAMint: TAccountMetas[5];
-    tokenBMint: TAccountMetas[6];
-    liquidityPool: TAccountMetas[7];
-    lpTokenMint: TAccountMetas[8];
-    lpTokenSignerTokenAccount: TAccountMetas[9];
+    tokenAVault: TAccountMetas[1];
+    tokenBVault: TAccountMetas[2];
+    tokenAMint: TAccountMetas[3];
+    tokenBMint: TAccountMetas[4];
+    liquidityPool: TAccountMetas[5];
+    lpTokenMint: TAccountMetas[6];
+    lpTokenSignerTokenAccount: TAccountMetas[7];
     /** Protocol fee LP token account owned by the pool PDA */
-    feeLpTokenAccount: TAccountMetas[10];
-    tokenProgram: TAccountMetas[11];
-    associatedTokenProgram: TAccountMetas[12];
-    systemProgram: TAccountMetas[13];
+    feeLpTokenAccount: TAccountMetas[8];
+    tokenProgram: TAccountMetas[9];
+    associatedTokenProgram: TAccountMetas[10];
+    systemProgram: TAccountMetas[11];
   };
   data: InitializePoolInstructionData;
 };
@@ -633,7 +555,7 @@ export function parseInitializePoolInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializePoolInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 14) {
+  if (instruction.accounts.length < 12) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -647,8 +569,6 @@ export function parseInitializePoolInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       signer: getNextAccount(),
-      tokenASignerTokenAccount: getNextAccount(),
-      tokenBSignerTokenAccount: getNextAccount(),
       tokenAVault: getNextAccount(),
       tokenBVault: getNextAccount(),
       tokenAMint: getNextAccount(),

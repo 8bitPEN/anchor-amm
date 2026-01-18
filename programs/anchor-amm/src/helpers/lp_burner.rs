@@ -11,8 +11,8 @@ pub trait LPBurner<'info> {
             self.token_program().to_account_info(),
             Burn {
                 mint: self.lp_token_mint().to_account_info(),
-                authority: self.lp_token_signer_token_account().to_account_info(),
-                from: self.signer().to_account_info(),
+                authority: self.signer().to_account_info(),
+                from: self.lp_token_signer_token_account().to_account_info(),
             },
         );
         burn(burn_ctx, lp_tokens_to_burn)?;

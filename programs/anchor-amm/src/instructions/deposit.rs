@@ -116,7 +116,6 @@ pub fn handler(
         ctx.accounts.token_a_vault.reload()?;
         ctx.accounts.token_b_vault.reload()?;
         ctx.accounts.sync_reserves();
-        ctx.accounts.liquidity_pool.reload()?;
         ctx.accounts.liquidity_pool.k_last = (ctx.accounts.liquidity_pool.token_a_reserves as u128)
             .checked_mul(ctx.accounts.liquidity_pool.token_b_reserves as u128)
             .ok_or(MathError::Overflow)?;
@@ -185,7 +184,6 @@ pub fn handler(
     ctx.accounts.token_a_vault.reload()?;
     ctx.accounts.token_b_vault.reload()?;
     ctx.accounts.sync_reserves();
-
     // Update k_last for protocol fee tracking
     ctx.accounts.liquidity_pool.k_last = (ctx.accounts.liquidity_pool.token_a_reserves as u128)
         .checked_mul(ctx.accounts.liquidity_pool.token_b_reserves as u128)
